@@ -51,11 +51,8 @@ class LeNet(nn.Module):
 
 
     def forward(self, x):
-        #print(x.size())
         x = self.pool(F.relu(self.conv1(x)))
-        #print(x.size())
         x = self.pool(F.relu(self.conv2(x)))
-        #print(x.size())
         x = x.view(-1, 16 * 6 * 6)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))

@@ -1,7 +1,7 @@
 #
 # Wide resnet with hyper options
 #
-# Adapted from https://github.com/szagoruyko/wide-residual-networks/blob/master/pytorch/resnet.py
+# Code adapted from https://github.com/szagoruyko/wide-residual-networks/blob/master/pytorch/resnet.py
 #
 
 import torch.nn as nn

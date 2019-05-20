@@ -1,7 +1,7 @@
 #
 # Hyper implementation of word level LSTM language model.
 #
-# Adapted from https://github.com/pytorch/examples/tree/master/word_language_model
+# Code adapted from https://github.com/pytorch/examples/tree/master/word_language_model
 #
 
 import torch
