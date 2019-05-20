@@ -11,6 +11,8 @@ pip install -r requirements.txt
 
 The code assumes datasets are downloaded into `~/hyperdatasets/<dataset_name>`, e.g., `~/hyperdatasets/cifar` and `~/hyperdatasets/wikitext2`.
 
+Dataset files for the synthetic dataset are included directly in `muir-release/datasets/synthetic`.
+
 Dataset files for Cifar can be downloaded directly with PyTorch.
 
 Dataset files for WikiText-2 can be downloaded from https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/.
