@@ -1,5 +1,7 @@
 # muir-release
 
+Codebase for running experiments with muir.
+
 ## Installation
 ```
 cd muir-release
@@ -31,4 +33,12 @@ python optimize.py --experiment_name <exp_name> --config <config_file> --device 
 `device` is the name of the device for running torch, e.g., `cpu`, `cuda:0`, `cuda:1`, ...
 
 Results for the experiment will be saved to a directory with the experiments name in `muir-release/results`.
+
+## Implementing new Experiments
+
+To use a new architecture, a model class must be implemented that replaces layers with hyperlayers (see `muir-relesae/pytorch/models/` for examples).
+
+Currently, layers supported for reparameterization by hypermodules are fully-connected, conv2d, conv1d, and LSTM (see `muir-release/pytorch/layers`). These can be extended to more layer types by following the examples there.
+
+To use a new dataset, it must be implemented to follow the interface of the examples in `muir-release/pytorch/datasets/`.
 
