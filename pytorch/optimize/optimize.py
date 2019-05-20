@@ -1,0 +1,639 @@
+#
+# Entrypoint for evolving in U9
+#
+
+import argparse
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+import os
+import time
+import sys
+sys.path.insert(0, os.getcwd())
+import yaml
+
+from copy import deepcopy
+from past.builtins import basestring
+from shutil import copyfile
+
+import numpy as np
+
+#from scipy.stats.mstats import gmean
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
+#from studio import fs_tracker
+
+from datasets.load_dataset import load_dataset
+from models.create_net import create_net
+from load_utils import load_config
+from omni_projector import OmniProjector
+
+
+def get_initial_state(num_projectors, num_locations, mode='separate'):
+    if mode == 'separate':
+        assert num_projectors == num_locations
+        return [[loc] for loc in range(num_locations)]
+    elif mode == 'perfect':
+        state = []
+        for i in range(30):
+            p = i / 10
+            state.append([p])
+        print(state)
+        return state
+    elif mode == 'random':
+        state = np.random.choice(range(num_locations), size=num_locations, replace=True)
+        state = [int(state[i]) for i in range(num_locations)]
+        print(state)
+        return state
+
+
+def get_new_state(curr_state, num_projectors, num_loc, num_cand,
+                  reactivation_probability):
+    """
+    Add a num_cand challengers in each of num_loc locations.
+    """
+    new_state = deepcopy(curr_state)
+    num_locations = len(curr_state)
+    if num_loc < 1:
+        num_loc = int(np.ceil(num_locations * num_loc))
+    else:
+        num_loc = int(num_loc)
+    active_projectors = get_active_projectors(curr_state)
+    print("Active Projectors:", len(active_projectors))
+    inactive_projectors = set(range(num_projectors)) - active_projectors
+    target_locations = np.random.choice(range(num_locations), size=num_loc, replace=False)
+    reactivated_projectors = set()
+    for target_location in target_locations:
+        for cand in range(num_cand):
+            select_active = (np.random.random() > reactivation_probability) \
+                            or (num_locations == len(active_projectors))
+            if select_active:
+                source_location = np.random.randint(num_locations)
+                source_projector = curr_state[source_location][0]
+            else:
+                source_projector = np.random.choice(list(inactive_projectors))
+                reactivated_projectors.add(source_projector)
+
+            new_state[target_location].append(source_projector)
+    return new_state, list(reactivated_projectors)
+
+
+def get_active_projectors(curr_state):
+    active_projectors = set()
+    for loc in curr_state:
+        for projector in loc:
+            active_projectors.add(projector)
+    return active_projectors
+
+
+def indices_to_projectors(state, projectors, optimizer, soft_lr):
+    hologenome = []
+    for loc in state:
+        genome = []
+        for projector_index in loc:
+            genome.append(projectors[projector_index])
+        if len(genome) == 1:
+            genome = genome[0]
+        else:
+            genome = MultiProjector(genome)
+            optimizer.add_param_group({'params': [genome.weight], 'lr': soft_lr})
+        hologenome.append(genome)
+    return hologenome
+
+
+def refine_state(state, omni_projector, select='best'):
+    """
+    Reduce state to a single projector for each location.
+    """
+
+    candidate_probs = torch.softmax(omni_projector.soft_weights, dim=0).squeeze()
+    if len(candidate_probs.size()) == 2:
+        candidate_probs = candidate_probs.t()
+    else:
+        candidate_probs = candidate_probs.unsqueeze(dim=0).t()
+    #print(candidate_probs[:10])
+    #print(candidate_probs[-10:])
+
+    best_counts = [0 for i in range(candidate_probs.size(1))]
+
+    refined_state = []
+    for i, loc in enumerate(state):
+        if len(loc) == 1:
+            best_projector = loc[0]
+        elif select == 'best':
+
+            cumulative_probs = {}
+            for j, proj in enumerate(loc):
+                prob = candidate_probs[i][j].item()
+                if proj not in cumulative_probs:
+                    cumulative_probs[proj] = 0
+                cumulative_probs[proj] += prob
+                #print(proj, prob)
+                #print(cumulative_probs)
+            best_projector = -1
+            best_score = -1
+            for proj  in cumulative_probs:
+                score = cumulative_probs[proj]
+                if score > best_score:
+                    best_score = score
+                    best_projector = proj
+            best_idx = loc.index(best_projector)
+            """
+            best_idx = torch.argmax(candidate_probs[i]).item()
+            best_projector = loc[best_idx]
+            """
+            best_counts[best_idx] += 1
+        elif select == 'random':
+            best_idx = np.random.randint(len(loc))
+            best_projector = loc[best_idx]
+        refined_state.append([best_projector])
+
+    print("Best Counts")
+    for i in range(candidate_probs.size(1)):
+        print(i, best_counts[i])
+
+    return refined_state
+
+
+def get_experiment_dir(experiment_name):
+
+    #if fs_tracker.get_artifact('results') == '..':
+    results_root = os.path.expanduser('~/hypernetworks/results/')
+    #else:
+    #    results_root = fs_tracker.get_artifact('results')
+    experiment_dir = results_root + '/' + experiment_name
+    return experiment_dir
+
+
+def setup_experiment_dir(experiment_name, config_file):
+
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    if not os.path.exists(experiment_dir):
+        os.makedirs(experiment_dir)
+    else:
+        print("Please choose a new experiment name")
+        sys.exit(0)
+
+    copyfile(config_file, '{}/{}'.format(experiment_dir, config_file.split('/')[-1]))
+
+    scores_file = experiment_dir + '/scores.txt'
+    with open(scores_file, 'w') as f:
+        f.write("[Train Losses] [Val Losses] [Val Errs] [Test Losses] [Test Errs]\n")
+    states_file = experiment_dir + '/states.txt'
+    with open(states_file, 'w') as f:
+        pass
+
+
+def write_result(experiment_name, scores, curr_state):
+
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    score_names = ['train_losses', 'val_losses', 'val_errs', 'test_losses', 'test_errs']
+    line = ' '.join([str(scores[score]) for score in score_names]) + '\n'
+    scores_file = '{}/scores.txt'.format(experiment_dir)
+    with open(scores_file, 'a') as f:
+        f.write(line)
+    line = '{}\n'.format(curr_state)
+    states_file = '{}/states.txt'.format(experiment_dir)
+    with open(states_file, 'a') as f:
+        f.write(line)
+
+
+def set_params(params, nets):
+    start = 0
+    for net in nets:
+        end = start + net.num_projectors
+        net.set_weights(params[start:end])
+        start = end
+
+def set_state(nets, net_projectors, curr_state, optimizer, device):
+    start_idx = 0
+    for net in nets:
+        end_idx = start_idx + net.num_projectors
+        net.set_projectors(net_projectors[start_idx:end_idx])
+        start_idx = end_idx
+    [net.to(device) for net in nets]
+
+
+def create_optimizer(nets, omni_projector, config):
+
+    clippable_params = []
+
+    param_list = []
+    for i, module in enumerate(nets):
+        param_list.append({'params': module.parameters(), 'name': 'net_{}'.format(i)})
+        clippable_params.extend(module.parameters())
+
+    if omni_projector:
+        norm = config['projectors'].get('norm', None)
+        if norm is None:
+            param_list.append({'params': omni_projector.projectors, 'name': 'projectors'})
+            clippable_params.append(omni_projector.projectors)
+        else:
+            param_list.append({'params': omni_projector.projectors_g, 'name': 'projectors_g'})
+            clippable_params.append(omni_projector.projectors_g)
+            param_list.append({'params': omni_projector.projectors_v, 'name': 'projectors_v'})
+            clippable_params.append(omni_projector.projectors_v)
+
+        if hasattr(omni_projector, 'biases'):
+            param_list.append({'params': omni_projector.biases, 'name': 'biases'})
+            clippable_params.append(omni_projector.biases)
+        param_list.append({'params': omni_projector.soft_weights,
+                          'lr': config['evolution']['soft_lr'],
+                          'name': 'soft_weights'})
+        clippable_params.append(omni_projector.soft_weights)
+        param_list.append({'params': omni_projector.context, 'name': 'context'})
+        clippable_params.append(omni_projector.context)
+
+    optimizer_name = config['training']['optimizer']
+    lr = config['training']['lr']
+    weight_decay = config['training']['weight_decay']
+    if optimizer_name == 'adam':
+        optimizer = optim.Adam(param_list, lr=lr, weight_decay=weight_decay)
+    elif optimizer_name == 'sgd':
+        optimizer = optim.SGD(param_list, lr=lr, weight_decay=weight_decay)
+    elif optimizer_name == 'rmsprop':
+        optimizer = optim.RMSprop(param_list, lr=lr, weight_decay=weight_decay)
+    else:
+        print("Please choose a valid optimizer")
+        sys.exit(0)
+
+    return optimizer, clippable_params
+
+
+def create_criteria(task_configs):
+    criteria = []
+    for task_config in task_configs:
+        loss = task_config['loss']
+        if loss == 'cross_entropy':
+            criterion = nn.CrossEntropyLoss()
+        elif loss == 'mse':
+            criterion = nn.MSELoss()
+        else:
+            print("Please choose a valid loss")
+            sys.exit(0)
+        criteria.append(criterion)
+    return criteria
+
+
+def run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device):
+
+    train_loaders = [dataset['train_loader'] for dataset in datasets]
+    train_iters = [dataset['train_iter'] for dataset in datasets]
+    val_loaders = [dataset['val_loader'] for dataset in datasets]
+    test_loaders = [dataset['test_loader'] for dataset in datasets]
+
+    print("Training")
+    train_losses = train(train_loaders, train_iters, nets, criteria, optimizer, clippable_params,
+                         config['training'].get('clip_grad', 0), omni_projector,
+                         config['evolution']['steps_per_generation'], device)
+    print("Testing")
+    test_losses, test_errs = test(test_loaders, nets, criteria, device)
+    print("Evaluating")
+    val_losses, val_errs = test(val_loaders, nets, criteria, device)
+
+    return {'train_losses': train_losses,
+            'val_losses': val_losses,
+            'val_errs': val_errs,
+            'test_losses': test_losses,
+            'test_errs': test_errs}
+
+def aggregate_context(nets):
+    print("Aggregating Context")
+    context_list = []
+    for net in nets:
+        for layer in net.hyperlayers:
+            context_list.append(layer.context)
+    context = torch.cat(context_list, dim=0)
+    aggregate_context = torch.tensor(context, requires_grad=True)
+    return aggregate_context
+
+
+def train(train_loaders, train_iters, nets, criteria, optimizer, clippable_params, clip_grad, omni_projector, steps, device):
+
+    [net.train() for net in nets]
+    if omni_projector:
+        omni_projector.train()
+    running_losses = [0.0 for net in nets]
+
+    train_start = time.time()
+    for i in range(steps):
+        iter_start = time.time()
+        optimizer.zero_grad()
+
+        if omni_projector:
+            #print("Generating parameters")
+            #params = omni_projector()
+            #print("Setting parameters")
+            set_params(omni_projector(), nets)
+            #print omni_projector.soft_weights
+
+        for j, (train_loader, net, criterion) in enumerate(zip(train_loaders, nets, criteria)):
+            start_time = time.time()
+            try:
+                batch = next(train_iters[j])
+            except:
+                train_iters[j] = iter(train_loader)
+                batch = next(train_iters[j])
+            if len(batch) == 2:
+                inputs, labels = batch
+            else:
+                inputs, labels = batch.text, batch.label.long()
+            inputs, labels = inputs.to(device), labels.to(device)
+
+            #print("Forward")
+            outputs = net(inputs)
+            loss = criterion(outputs, labels)
+            retain_variables = (j != len(nets) - 1)
+            #print("Backward")
+            loss.backward(retain_graph=retain_variables)
+
+            elapsed_time = time.time() - start_time
+            running_losses[j] += loss.item()
+            print('dataset: %5d, step: %5d, secs: %.2f, loss: %.3f, %.3f' %
+                  (j, i + 1, elapsed_time, running_losses[j] / (i+1), loss.item()))
+
+            if (i + 1) % len(train_loader) == 0:
+                train_iters[j] = iter(train_loader)
+
+        #print("STEP")
+        if clip_grad > 0:
+            nn.utils.clip_grad_norm_(clippable_params, clip_grad)
+        optimizer.step()
+        #print("STEPPED")
+        #print "Iter secs:", time.time() - iter_start
+    #print "TRAIN TIME:", (time.time() - train_start) / float(steps)
+    print(running_losses[j] / (i+1))
+
+    #if omni_projector:
+    #    with torch.no_grad():
+    #        #print("Generating parameters")
+    #        #print("Setting parameters")
+    #        set_params(omni_projector(), nets)
+
+    train_losses = [running_loss / steps for running_loss in running_losses]
+    return train_losses
+
+
+def test(test_loaders, nets, criteria, device):
+
+    test_losses = []
+    test_errs = []
+    for i, (test_loader, net, criterion) in enumerate(zip(test_loaders, nets, criteria)):
+        if hasattr(net, 'init_hidden'):
+            print("Init Hidden")
+            net.init_hidden()
+        print("Testing", i)
+        net.eval()
+        test_loss = 0
+        total = 0
+        correct = 0
+        classify = (isinstance(criterion, nn.CrossEntropyLoss))
+        with torch.no_grad():
+            for batch in test_loader:
+                if len(batch) == 2:
+                    inputs, labels = batch
+                else:
+                    inputs, labels = batch.text, batch.label.long()
+                inputs, labels = inputs.to(device), labels.to(device)
+                outputs = net(inputs)
+                loss = criterion(outputs, labels)
+                test_loss += loss.item() * labels.size(0)
+                if classify:
+                    pred = outputs.max(1, keepdim=True)[1]
+                    correct += pred.eq(labels.view_as(pred)).sum().item()
+                total += labels.size(0)
+
+        test_loss /= total
+        print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.3f}%)\n'.format(
+            test_loss, correct, total,
+            100. * correct / float(total)))
+        test_err = 1. - (float(correct) / total)
+
+        test_losses.append(test_loss)
+        test_errs.append(test_err)
+
+    print("Mean Loss:", np.mean(test_losses))
+
+    return test_losses, test_errs
+
+
+def reset_soft_weight_optimizer_state(optimizer):
+    """
+    Reset optimizer state of soft weights so they are not misapplied.
+    """
+    for group in optimizer.param_groups:
+        if 'name' in group and group['name'] == 'soft_weights':
+            for p in group['params']:
+                optimizer.state[p] = {}
+
+
+def evolve(experiment_name, datasets, nets, omni_projector, config, device):
+
+    #torch.backends.cudnn.benchmark = True
+
+    [net.to(device) for net in nets]
+    if omni_projector:
+        omni_projector.to(device)
+
+    optimizer, clippable_params = create_optimizer(nets, omni_projector, config)
+
+    criteria = create_criteria(config['tasks'])
+    if omni_projector:
+        num_projectors = omni_projector.num_blocks
+    else:
+        num_projectors = 0
+
+    init_mode = config['evolution'].get('init_mode', 'separate')
+    curr_state = get_initial_state(num_projectors, num_projectors, init_mode)
+    mutate_this_gen = False
+
+    best_score = float("inf")
+    best_state = deepcopy(curr_state)
+
+    if 'lr_patience' in config['evolution']:
+        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',
+                            patience=config['evolution']['lr_patience'], factor=0.25)
+    else:
+        lr_scheduler = None
+
+    # Decide how many initial meta-iterations to train with the default parameterization
+    # before beginning evolution.
+    if 'burn_in' in config['evolution']:
+        burn_in = config['evolution']['burn_in']
+    else:
+        burn_in = 0
+
+    for gen in range(config['evolution']['num_generations']):
+        print("Generation",gen)
+        print(experiment_name)
+
+        # Generate
+        if (num_projectors > 0) and (gen >= burn_in) and (mutate_this_gen or
+                                                     not config['evolution']['alternate_optimization']):
+            print("GENERATING")
+            curr_state, reactivated_projectors = get_new_state(curr_state, num_projectors,
+                                                       config['evolution']['mutate_percentage'],
+                                                       config['evolution']['alternatives_per_mutation'],
+                                                       config['evolution']['reactivation_probability'])
+            omni_projector.reactivate_projectors(reactivated_projectors, device)
+
+        mutate_this_gen = not mutate_this_gen
+
+        if omni_projector:
+            omni_projector.assemble_projectors(curr_state)
+            reset_soft_weight_optimizer_state(optimizer)
+
+        # Evaluate
+        scores = run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device)
+
+        # Refine
+        if omni_projector and (config['evolution']['alternatives_per_mutation'] > 0):
+            curr_state = refine_state(curr_state, omni_projector,
+                                      config['evolution']['selection_method'])
+
+        # Check how well we're doing
+        if 'target_metric' in config['evolution']:
+            target_metric = config['evolution']['target_metric']
+        else:
+            target_metric = 'val_losses'
+
+        if 'target_index' in config['evolution']:
+            target_index = config['evolution']['target_index']
+            curr_score = scores[target_metric][target_index]
+        else:
+            curr_score = np.mean(scores[target_metric])
+
+        save_best = config['evolution'].get('save_best', False)
+        if curr_score < best_score:
+
+            print("New best score:", curr_score)
+            best_score = curr_score
+            best_state = deepcopy(curr_state)
+
+            if save_best:
+                print("Saving best")
+                save_best_state(experiment_name, best_state, omni_projector, nets, optimizer)
+
+        elif config['evolution'].get('use_val', False):
+            curr_state = deepcopy(best_state)
+
+        # Record
+        write_result(experiment_name, scores, curr_state)
+
+        # Reduce learning rate if necessary.
+        if lr_scheduler:
+            lr_scheduler.step(curr_score)
+            print("Num bad epochs:", lr_scheduler.num_bad_epochs)
+
+    # Fix state and perform final fine tuning.
+    final_training_generations = config['evolution'].get('final_training_generations', 0)
+    final_training_mode = config['evolution'].get('final_training_mode', 'keep')
+
+    if final_training_mode == 'best_state':
+        curr_state = best_state
+    elif final_training_mode == 'best_val':
+        print("Loading best")
+        omni_projector, nets, curr_state, optimizer = load_best_state(
+                        experiment_name, omni_projector, nets, optimizer)
+
+    if omni_projector:
+        omni_projector.assemble_projectors(curr_state)
+    for gen in range(final_training_generations):
+        print("Final Generation",gen)
+
+        # Evaluate
+        scores = run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device)
+
+        # Record
+        write_result(experiment_name, scores, curr_state)
+
+
+def save_best_state(experiment_name, best_state, omni_projector, nets, optimizer):
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    omni_projector_path = '{}/omni_projector.pth'.format(experiment_dir)
+    torch.save(omni_projector.state_dict(), omni_projector_path)
+
+    for i, net in enumerate(nets):
+        net_path = '{}/net_{}.pth'.format(experiment_dir, i)
+        torch.save(net.state_dict(), net_path)
+
+    optimizer_path = '{}/optimizer.pth'.format(experiment_dir)
+    torch.save(optimizer.state_dict(), optimizer_path)
+
+    state_path = '{}/state.pkl'.format(experiment_dir)
+    with open(state_path, 'wb') as f:
+        pickle.dump(best_state, f)
+
+
+def load_best_state(experiment_name, omni_projector, nets, optimizer):
+    experiment_dir = get_experiment_dir(experiment_name)
+
+    omni_projector_path = '{}/omni_projector.pth'.format(experiment_dir)
+    omni_projector.load_state_dict(torch.load(omni_projector_path))
+
+    for i, net in enumerate(nets):
+        net_path = '{}/net_{}.pth'.format(experiment_dir, i)
+        net.load_state_dict(torch.load(net_path))
+
+    optimizer_path = '{}/optimizer.pth'.format(experiment_dir)
+    optimizer.load_state_dict(torch.load(optimizer_path))
+
+    state_path = '{}/state.pkl'.format(experiment_dir)
+    with open(state_path, 'rb') as f:
+        best_state = pickle.load(f)
+
+    return omni_projector, nets, best_state, optimizer
+
+
+def setup_and_run(experiment_name, config, device):
+
+    datasets = [load_dataset(task_config) for task_config in config['tasks']]
+    for dataset in datasets:
+        dataset['train_iter'] = iter(dataset['train_loader'])
+    nets = [create_net(task_config, config['projectors']) for task_config in config['tasks']]
+    for net in nets:
+        print("NUM FILTERS", net.num_projectors)
+    num_projectors = sum([net.num_projectors for net in nets])
+    if num_projectors != 0:
+        context = aggregate_context(nets)
+        bias = config['projectors'].get('bias', True)
+        alpha = config['evolution'].get('alpha', None)
+        ignore_context = config['projectors'].get('ignore_context', False)
+        frozen_context = config['projectors'].get('frozen_context', False)
+        omni_projector = OmniProjector(config['projectors']['context_size'],
+                                       config['projectors']['block_in'],
+                                       config['projectors']['block_out'],
+                                       num_projectors,
+                                       config['evolution']['alternatives_per_mutation'] + 1,
+                                       context,
+                                       bias=bias,
+                                       alpha=alpha,
+                                       ignore_context=ignore_context,
+                                       frozen_context=frozen_context)
+        norm = config['projectors'].get('norm', None)
+        if norm == 'weight':
+            # Reparameterize projectors by weight norm.
+            omni_projector = nn.utils.weight_norm(omni_projector, name='projectors')
+    else:
+        omni_projector = None
+    evolve(experiment_name, datasets, nets, omni_projector, config, device)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Evolve hypermodels")
+
+    parser.add_argument('--experiment_name', required=True)
+    parser.add_argument('--config', required=True)
+    parser.add_argument('--device', default='cpu')
+
+    args = parser.parse_args()
+    setup_experiment_dir(args.experiment_name, args.config)
+    config = load_config(args.config)
+    setup_and_run(args.experiment_name, config, args.device)
