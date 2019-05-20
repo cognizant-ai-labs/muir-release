@@ -1,7 +1,7 @@
 #
 # Function for loading synthetic dataset
 #
-# Adapated from: Learning with Whom to Share in Multi-task Feature Learning, ICML 2011
+# Code adapated from: Learning with Whom to Share in Multi-task Feature Learning, ICML 2011
 #
 
 try:

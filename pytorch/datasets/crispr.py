@@ -95,15 +95,9 @@ def load_data(data_directory):
 
 def _init_fn(worker_id):
     np.random.seed(301 + worker_id)
-    #np.random.seed()
 
 def load_crispr_genomic(batch_size=512, context_size=100,
                         steps_per_epoch=1000000, validation_steps=100000, num_workers=4):
-
-    #torch.manual_seed(301)
-    #torch.cuda.manual_seed(301)
-    #np.random.seed(301)
-    #random.seed(301)
 
     print("Creating generators.")
     read_data, dna_data, splits = load_data(os.path.expanduser('~/hyperdatasets/crispr'))

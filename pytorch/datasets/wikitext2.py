@@ -1,7 +1,7 @@
 #
 # Functions for loading Wikitext-2 dataset.
 #
-# Adapted from https://github.com/pytorch/examples/blob/master/word_language_model/
+# Code adapted from https://github.com/pytorch/examples/blob/master/word_language_model/
 #
 
 import os
