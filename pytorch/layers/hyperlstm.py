@@ -15,7 +15,6 @@ class HyperLSTM(nn.Module):
     def __init__(self, input_size, hidden_size,
                  context_size, block_in, block_out,
                  frozen_context=False,
-                 symmetric_context=False,
                  num_layers=1):
         super(HyperLSTM, self).__init__()
 
@@ -25,8 +24,6 @@ class HyperLSTM(nn.Module):
         self.context_size = context_size
         self.block_in = block_in
         self.block_out = block_out
-
-        self.symmetric_context = symmetric_context
 
         # Create LSTM
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers=num_layers)
@@ -54,10 +51,6 @@ class HyperLSTM(nn.Module):
     def reset_parameters(self):
         initial_context = 1. / math.sqrt(self.hidden_size)
         init.constant_(self.context, initial_context)
-        if self.symmetric_context:
-            with torch.no_grad():
-                sign_mask = torch.randint(2, self.context.size()) * 2 - 1
-                self.context.data = self.context.data * sign_mask
 
     def set_weight(self, params):
         start = 0

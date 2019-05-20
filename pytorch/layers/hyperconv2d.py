@@ -14,12 +14,10 @@ class HyperConv2d(nn.Module):
 
     def __init__(self, in_channels, out_channels, kernel_size,
                  context_size, block_in, block_out,
-                 spatial_sharing=False,
                  frozen_context=False,
                  bias=True,
                  stride=1,
-                 padding=1,
-                 symmetric_context=False):
+                 padding=1):
         super(HyperConv2d, self).__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -27,10 +25,8 @@ class HyperConv2d(nn.Module):
         self.context_size = context_size
         self.block_in = block_in
         self.block_out = block_out
-        self.spatial_sharing= spatial_sharing
         self.stride = stride
         self.padding = 1
-        self.symmetric_context = symmetric_context
 
         # Create context vectors
         assert (in_channels % block_in == 0) and (out_channels % block_out == 0)
@@ -38,10 +34,7 @@ class HyperConv2d(nn.Module):
         self.num_block_cols = in_channels / block_in
         self.num_blocks = int(self.num_block_rows * self.num_block_cols *
                                  self.kernel_size * self.kernel_size)
-        if spatial_sharing:
-            self.num_projectors = self.num_block_rows * self.num_block_cols
-        else:
-            self.num_projectors = self.num_blocks
+        self.num_projectors = self.num_blocks
 
         if frozen_context:
             self.context = torch.zeros(self.num_blocks, context_size, 1)
@@ -60,10 +53,6 @@ class HyperConv2d(nn.Module):
         initial_context = math.sqrt(2) / math.sqrt(
                                 self.in_channels * self.kernel_size * self.kernel_size)
         init.constant_(self.context, initial_context)
-        if self.symmetric_context:
-            with torch.no_grad():
-                sign_mask = torch.randint(2, self.context.size()) * 2 - 1
-                self.context.data = self.context.data * sign_mask
         if self.bias is not None:
             init.zeros_(self.bias)
 
@@ -79,5 +68,5 @@ class HyperConv2d(nn.Module):
                         stride=self.stride)
 
 if __name__ == "__main__":
-    print(HyperConv2d(10, 20, 3, 4, 5, 4, spatial_sharing=True))
+    print(HyperConv2d(10, 20, 3, 4, 5, 4))
 

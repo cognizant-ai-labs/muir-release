@@ -15,15 +15,13 @@ class HyperLinear(nn.Module):
     def __init__(self, in_features, out_features,
                  context_size, block_in, block_out,
                  frozen_context=False,
-                 bias=True,
-                 symmetric_context=False):
+                 bias=True):
         super(HyperLinear, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.context_size = context_size
         self.block_in = block_in
         self.block_out = block_out
-        self.symmetric_context = symmetric_context
 
         # Create context parameters.
         assert (in_features % block_in == 0) and (out_features % block_out == 0)
@@ -43,10 +41,6 @@ class HyperLinear(nn.Module):
     def reset_parameters(self):
         initial_context = math.sqrt(2) / math.sqrt(self.in_features)
         init.constant_(self.context, initial_context)
-        if self.symmetric_context:
-            with torch.no_grad():
-                sign_mask = torch.randint(2, self.context.size()) * 2 - 1
-                self.context.data = self.context.data * sign_mask
         if self.bias is not None:
             init.zeros_(self.bias)
 
