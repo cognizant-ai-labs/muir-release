@@ -1,5 +1,5 @@
 #
-# Entrypoint for evolving in U9
+# Entrypoint for optimizing in muir
 #
 
 import argparse
@@ -19,13 +19,9 @@ from shutil import copyfile
 
 import numpy as np
 
-#from scipy.stats.mstats import gmean
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
-#from studio import fs_tracker
 
 from datasets.load_dataset import load_dataset
 from models.create_net import create_net
@@ -230,21 +226,14 @@ def create_optimizer(nets, omni_projector, config):
         clippable_params.extend(module.parameters())
 
     if omni_projector:
-        norm = config['projectors'].get('norm', None)
-        if norm is None:
-            param_list.append({'params': omni_projector.projectors, 'name': 'projectors'})
-            clippable_params.append(omni_projector.projectors)
-        else:
-            param_list.append({'params': omni_projector.projectors_g, 'name': 'projectors_g'})
-            clippable_params.append(omni_projector.projectors_g)
-            param_list.append({'params': omni_projector.projectors_v, 'name': 'projectors_v'})
-            clippable_params.append(omni_projector.projectors_v)
+        param_list.append({'params': omni_projector.projectors, 'name': 'projectors'})
+        clippable_params.append(omni_projector.projectors)
 
         if hasattr(omni_projector, 'biases'):
             param_list.append({'params': omni_projector.biases, 'name': 'biases'})
             clippable_params.append(omni_projector.biases)
         param_list.append({'params': omni_projector.soft_weights,
-                          'lr': config['evolution']['soft_lr'],
+                          'lr': config['optimization']['soft_lr'],
                           'name': 'soft_weights'})
         clippable_params.append(omni_projector.soft_weights)
         param_list.append({'params': omni_projector.context, 'name': 'context'})
@@ -291,7 +280,7 @@ def run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_project
     print("Training")
     train_losses = train(train_loaders, train_iters, nets, criteria, optimizer, clippable_params,
                          config['training'].get('clip_grad', 0), omni_projector,
-                         config['evolution']['steps_per_generation'], device)
+                         config['optimization']['steps_per_generation'], device)
     print("Testing")
     test_losses, test_errs = test(test_loaders, nets, criteria, device)
     print("Evaluating")
@@ -433,9 +422,7 @@ def reset_soft_weight_optimizer_state(optimizer):
                 optimizer.state[p] = {}
 
 
-def evolve(experiment_name, datasets, nets, omni_projector, config, device):
-
-    #torch.backends.cudnn.benchmark = True
+def optimize(experiment_name, datasets, nets, omni_projector, config, device):
 
     [net.to(device) for net in nets]
     if omni_projector:
@@ -449,38 +436,38 @@ def evolve(experiment_name, datasets, nets, omni_projector, config, device):
     else:
         num_projectors = 0
 
-    init_mode = config['evolution'].get('init_mode', 'separate')
+    init_mode = config['optimization'].get('init_mode', 'separate')
     curr_state = get_initial_state(num_projectors, num_projectors, init_mode)
     mutate_this_gen = False
 
     best_score = float("inf")
     best_state = deepcopy(curr_state)
 
-    if 'lr_patience' in config['evolution']:
+    if 'lr_patience' in config['optimization']:
         lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',
-                            patience=config['evolution']['lr_patience'], factor=0.25)
+                            patience=config['optimization']['lr_patience'], factor=0.25)
     else:
         lr_scheduler = None
 
     # Decide how many initial meta-iterations to train with the default parameterization
-    # before beginning evolution.
-    if 'burn_in' in config['evolution']:
-        burn_in = config['evolution']['burn_in']
+    # before beginning optimization.
+    if 'burn_in' in config['optimization']:
+        burn_in = config['optimization']['burn_in']
     else:
         burn_in = 0
 
-    for gen in range(config['evolution']['num_generations']):
+    for gen in range(config['optimization']['num_generations']):
         print("Generation",gen)
         print(experiment_name)
 
         # Generate
         if (num_projectors > 0) and (gen >= burn_in) and (mutate_this_gen or
-                                                     not config['evolution']['alternate_optimization']):
+                                                     not config['optimization']['alternate_optimization']):
             print("GENERATING")
             curr_state, reactivated_projectors = get_new_state(curr_state, num_projectors,
-                                                       config['evolution']['mutate_percentage'],
-                                                       config['evolution']['alternatives_per_mutation'],
-                                                       config['evolution']['reactivation_probability'])
+                                                       config['optimization']['mutate_percentage'],
+                                                       config['optimization']['alternatives_per_mutation'],
+                                                       config['optimization']['reactivation_probability'])
             omni_projector.reactivate_projectors(reactivated_projectors, device)
 
         mutate_this_gen = not mutate_this_gen
@@ -493,23 +480,23 @@ def evolve(experiment_name, datasets, nets, omni_projector, config, device):
         scores = run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device)
 
         # Refine
-        if omni_projector and (config['evolution']['alternatives_per_mutation'] > 0):
+        if omni_projector and (config['optimization']['alternatives_per_mutation'] > 0):
             curr_state = refine_state(curr_state, omni_projector,
-                                      config['evolution']['selection_method'])
+                                      config['optimization']['selection_method'])
 
         # Check how well we're doing
-        if 'target_metric' in config['evolution']:
-            target_metric = config['evolution']['target_metric']
+        if 'target_metric' in config['optimization']:
+            target_metric = config['optimization']['target_metric']
         else:
             target_metric = 'val_losses'
 
-        if 'target_index' in config['evolution']:
-            target_index = config['evolution']['target_index']
+        if 'target_index' in config['optimization']:
+            target_index = config['optimization']['target_index']
             curr_score = scores[target_metric][target_index]
         else:
             curr_score = np.mean(scores[target_metric])
 
-        save_best = config['evolution'].get('save_best', False)
+        save_best = config['optimization'].get('save_best', False)
         if curr_score < best_score:
 
             print("New best score:", curr_score)
@@ -520,7 +507,7 @@ def evolve(experiment_name, datasets, nets, omni_projector, config, device):
                 print("Saving best")
                 save_best_state(experiment_name, best_state, omni_projector, nets, optimizer)
 
-        elif config['evolution'].get('use_val', False):
+        elif config['optimization'].get('use_val', False):
             curr_state = deepcopy(best_state)
 
         # Record
@@ -532,8 +519,8 @@ def evolve(experiment_name, datasets, nets, omni_projector, config, device):
             print("Num bad epochs:", lr_scheduler.num_bad_epochs)
 
     # Fix state and perform final fine tuning.
-    final_training_generations = config['evolution'].get('final_training_generations', 0)
-    final_training_mode = config['evolution'].get('final_training_mode', 'keep')
+    final_training_generations = config['optimization'].get('final_training_generations', 0)
+    final_training_mode = config['optimization'].get('final_training_mode', 'keep')
 
     if final_training_mode == 'best_state':
         curr_state = best_state
@@ -604,26 +591,22 @@ def setup_and_run(experiment_name, config, device):
     if num_projectors != 0:
         context = aggregate_context(nets)
         bias = config['projectors'].get('bias', True)
-        alpha = config['evolution'].get('alpha', None)
+        alpha = config['optimization'].get('alpha', None)
         ignore_context = config['projectors'].get('ignore_context', False)
         frozen_context = config['projectors'].get('frozen_context', False)
         omni_projector = OmniProjector(config['projectors']['context_size'],
                                        config['projectors']['block_in'],
                                        config['projectors']['block_out'],
                                        num_projectors,
-                                       config['evolution']['alternatives_per_mutation'] + 1,
+                                       config['optimization']['alternatives_per_mutation'] + 1,
                                        context,
                                        bias=bias,
                                        alpha=alpha,
                                        ignore_context=ignore_context,
                                        frozen_context=frozen_context)
-        norm = config['projectors'].get('norm', None)
-        if norm == 'weight':
-            # Reparameterize projectors by weight norm.
-            omni_projector = nn.utils.weight_norm(omni_projector, name='projectors')
     else:
         omni_projector = None
-    evolve(experiment_name, datasets, nets, omni_projector, config, device)
+    optimize(experiment_name, datasets, nets, omni_projector, config, device)
 
 
 if __name__ == '__main__':

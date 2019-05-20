@@ -1,5 +1,5 @@
 #
-# Other utils
+# Utils for loading.
 #
 
 import yaml

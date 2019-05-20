@@ -7,22 +7,13 @@ import torch.nn as nn
 
 class Projector(nn.Module):
 
-    def __init__(self, context_size, block_in, block_out, norm=None, bias=True):
+    def __init__(self, context_size, block_in, block_out, bias=True):
         super(Projector, self).__init__()
         self.context_size = context_size
         self.block_in = block_in
         self.block_out = block_out
         self.bias = bias
-        if norm is None:
-            self.projector = nn.Linear(context_size, block_in*block_out, bias=bias)
-        elif norm is 'spectral':
-            self.projector = nn.utils.spectral_norm(
-                nn.Linear(context_size, block_in*block_out, bias=bias),
-                name='weight')
-        elif norm is 'weight':
-            self.projector = nn.utils.weight_norm(
-                nn.Linear(context_size, block_in*block_out, bias=bias),
-                name='weight')
+        self.projector = nn.Linear(context_size, block_in*block_out, bias=bias)
         self.reset_parameters()
 
     def reset_parameters(self):
