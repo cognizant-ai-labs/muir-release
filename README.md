@@ -1,6 +1,5 @@
 # muir-release
 
-Codebase for running experiments with muir.
 
 ## Installation
 ```
