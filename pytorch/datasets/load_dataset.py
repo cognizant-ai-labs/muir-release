@@ -27,18 +27,6 @@ def load_dataset(task_config):
     elif dataset == 'crispr_genomic':
         trainloader, valloader, testloader, classes = load_crispr_genomic(batch_size)
 
-    elif dataset == 'imdb':
-        max_length = task_config.get('max_length', 100)
-        vocab_size = task_config.get('vocab_size', 25000)
-        tokenizer = task_config.get('tokenizer', 'split')
-        trainloader, valloader, testloader, classes = load_imdb(batch_size,
-                                                                vocab_size,
-                                                                max_length,
-                                                                tokenizer)
-
-    elif dataset == 'mnist':
-        trainloader, valloader, testloader, classes = load_mnist(batch_size=batch_size)
-
     elif dataset == 'synthetic':
         num_val = task_config.get('num_val', 5)
         task_index = task_config.get('task_index', 0)
