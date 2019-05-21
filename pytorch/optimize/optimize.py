@@ -190,7 +190,7 @@ def create_optimizer(nets, omni_projector, config):
         if hasattr(omni_projector, 'biases'):
             param_list.append({'params': omni_projector.biases, 'name': 'biases'})
         param_list.append({'params': omni_projector.soft_weights,
-                          'lr': config['optimization']['soft_lr'],
+                          'lr': config['optimization'].get('soft_lr', 0.1),
                           'name': 'soft_weights'})
         param_list.append({'params': omni_projector.context, 'name': 'context'})
 
