@@ -18,4 +18,4 @@ projectors:
 optimization:
     steps_per_generation: 1000
     num_generations: 1000
-    final_training_generations: 1
+    final_training_generations: 0

@@ -86,21 +86,6 @@ def get_active_projectors(curr_state):
     return active_projectors
 
 
-def indices_to_projectors(state, projectors, optimizer, soft_lr):
-    hologenome = []
-    for loc in state:
-        genome = []
-        for projector_index in loc:
-            genome.append(projectors[projector_index])
-        if len(genome) == 1:
-            genome = genome[0]
-        else:
-            genome = MultiProjector(genome)
-            optimizer.add_param_group({'params': [genome.weight], 'lr': soft_lr})
-        hologenome.append(genome)
-    return hologenome
-
-
 def refine_state(state, omni_projector, select='best'):
     """
     Reduce state to a single projector for each location.
@@ -111,15 +96,12 @@ def refine_state(state, omni_projector, select='best'):
         candidate_probs = candidate_probs.t()
     else:
         candidate_probs = candidate_probs.unsqueeze(dim=0).t()
-    #print(candidate_probs[:10])
-    #print(candidate_probs[-10:])
-
-    best_counts = [0 for i in range(candidate_probs.size(1))]
 
     refined_state = []
     for i, loc in enumerate(state):
         if len(loc) == 1:
             best_projector = loc[0]
+
         elif select == 'best':
 
             cumulative_probs = {}
@@ -128,8 +110,7 @@ def refine_state(state, omni_projector, select='best'):
                 if proj not in cumulative_probs:
                     cumulative_probs[proj] = 0
                 cumulative_probs[proj] += prob
-                #print(proj, prob)
-                #print(cumulative_probs)
+
             best_projector = -1
             best_score = -1
             for proj  in cumulative_probs:
@@ -138,29 +119,18 @@ def refine_state(state, omni_projector, select='best'):
                     best_score = score
                     best_projector = proj
             best_idx = loc.index(best_projector)
-            """
-            best_idx = torch.argmax(candidate_probs[i]).item()
-            best_projector = loc[best_idx]
-            """
-            best_counts[best_idx] += 1
+
         elif select == 'random':
             best_idx = np.random.randint(len(loc))
             best_projector = loc[best_idx]
         refined_state.append([best_projector])
-
-    print("Best Counts")
-    for i in range(candidate_probs.size(1)):
-        print(i, best_counts[i])
 
     return refined_state
 
 
 def get_experiment_dir(experiment_name):
 
-    #if fs_tracker.get_artifact('results') == '..':
-    results_root = os.path.expanduser('~/hypernetworks/results/')
-    #else:
-    #    results_root = fs_tracker.get_artifact('results')
+    results_root = os.path.expanduser('~/muir-release/results/')
     experiment_dir = results_root + '/' + experiment_name
     return experiment_dir
 
@@ -207,41 +177,26 @@ def set_params(params, nets):
         net.set_weights(params[start:end])
         start = end
 
-def set_state(nets, net_projectors, curr_state, optimizer, device):
-    start_idx = 0
-    for net in nets:
-        end_idx = start_idx + net.num_projectors
-        net.set_projectors(net_projectors[start_idx:end_idx])
-        start_idx = end_idx
-    [net.to(device) for net in nets]
-
 
 def create_optimizer(nets, omni_projector, config):
-
-    clippable_params = []
 
     param_list = []
     for i, module in enumerate(nets):
         param_list.append({'params': module.parameters(), 'name': 'net_{}'.format(i)})
-        clippable_params.extend(module.parameters())
 
     if omni_projector:
         param_list.append({'params': omni_projector.projectors, 'name': 'projectors'})
-        clippable_params.append(omni_projector.projectors)
 
         if hasattr(omni_projector, 'biases'):
             param_list.append({'params': omni_projector.biases, 'name': 'biases'})
-            clippable_params.append(omni_projector.biases)
         param_list.append({'params': omni_projector.soft_weights,
                           'lr': config['optimization']['soft_lr'],
                           'name': 'soft_weights'})
-        clippable_params.append(omni_projector.soft_weights)
         param_list.append({'params': omni_projector.context, 'name': 'context'})
-        clippable_params.append(omni_projector.context)
 
-    optimizer_name = config['training']['optimizer']
-    lr = config['training']['lr']
-    weight_decay = config['training']['weight_decay']
+    optimizer_name = config['training'].get('optimizer', 'adam')
+    lr = config['training'].get('lr', 0.001)
+    weight_decay = config['training'].get('weight_decay', 0.)
     if optimizer_name == 'adam':
         optimizer = optim.Adam(param_list, lr=lr, weight_decay=weight_decay)
     elif optimizer_name == 'sgd':
@@ -252,7 +207,7 @@ def create_optimizer(nets, omni_projector, config):
         print("Please choose a valid optimizer")
         sys.exit(0)
 
-    return optimizer, clippable_params
+    return optimizer
 
 
 def create_criteria(task_configs):
@@ -270,7 +225,7 @@ def create_criteria(task_configs):
     return criteria
 
 
-def run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device):
+def run_nets(datasets, nets, criteria, optimizer, omni_projector, config, device):
 
     train_loaders = [dataset['train_loader'] for dataset in datasets]
     train_iters = [dataset['train_iter'] for dataset in datasets]
@@ -278,13 +233,12 @@ def run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_project
     test_loaders = [dataset['test_loader'] for dataset in datasets]
 
     print("Training")
-    train_losses = train(train_loaders, train_iters, nets, criteria, optimizer, clippable_params,
-                         config['training'].get('clip_grad', 0), omni_projector,
-                         config['optimization']['steps_per_generation'], device)
-    print("Testing")
-    test_losses, test_errs = test(test_loaders, nets, criteria, device)
+    train_losses = train(train_loaders, train_iters, nets, criteria, optimizer, omni_projector,
+                         config['optimization'].get(['steps_per_generation']), device)
     print("Evaluating")
     val_losses, val_errs = test(val_loaders, nets, criteria, device)
+    print("Testing")
+    test_losses, test_errs = test(test_loaders, nets, criteria, device)
 
     return {'train_losses': train_losses,
             'val_losses': val_losses,
@@ -303,7 +257,7 @@ def aggregate_context(nets):
     return aggregate_context
 
 
-def train(train_loaders, train_iters, nets, criteria, optimizer, clippable_params, clip_grad, omni_projector, steps, device):
+def train(train_loaders, train_iters, nets, criteria, optimizer, omni_projector, steps, device):
 
     [net.train() for net in nets]
     if omni_projector:
@@ -316,11 +270,7 @@ def train(train_loaders, train_iters, nets, criteria, optimizer, clippable_param
         optimizer.zero_grad()
 
         if omni_projector:
-            #print("Generating parameters")
-            #params = omni_projector()
-            #print("Setting parameters")
             set_params(omni_projector(), nets)
-            #print omni_projector.soft_weights
 
         for j, (train_loader, net, criterion) in enumerate(zip(train_loaders, nets, criteria)):
             start_time = time.time()
@@ -335,11 +285,9 @@ def train(train_loaders, train_iters, nets, criteria, optimizer, clippable_param
                 inputs, labels = batch.text, batch.label.long()
             inputs, labels = inputs.to(device), labels.to(device)
 
-            #print("Forward")
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             retain_variables = (j != len(nets) - 1)
-            #print("Backward")
             loss.backward(retain_graph=retain_variables)
 
             elapsed_time = time.time() - start_time
@@ -350,20 +298,7 @@ def train(train_loaders, train_iters, nets, criteria, optimizer, clippable_param
             if (i + 1) % len(train_loader) == 0:
                 train_iters[j] = iter(train_loader)
 
-        #print("STEP")
-        if clip_grad > 0:
-            nn.utils.clip_grad_norm_(clippable_params, clip_grad)
-        optimizer.step()
-        #print("STEPPED")
-        #print "Iter secs:", time.time() - iter_start
-    #print "TRAIN TIME:", (time.time() - train_start) / float(steps)
     print(running_losses[j] / (i+1))
-
-    #if omni_projector:
-    #    with torch.no_grad():
-    #        #print("Generating parameters")
-    #        #print("Setting parameters")
-    #        set_params(omni_projector(), nets)
 
     train_losses = [running_loss / steps for running_loss in running_losses]
     return train_losses
@@ -428,7 +363,7 @@ def optimize(experiment_name, datasets, nets, omni_projector, config, device):
     if omni_projector:
         omni_projector.to(device)
 
-    optimizer, clippable_params = create_optimizer(nets, omni_projector, config)
+    optimizer = create_optimizer(nets, omni_projector, config)
 
     criteria = create_criteria(config['tasks'])
     if omni_projector:
@@ -438,58 +373,41 @@ def optimize(experiment_name, datasets, nets, omni_projector, config, device):
 
     init_mode = config['optimization'].get('init_mode', 'separate')
     curr_state = get_initial_state(num_projectors, num_projectors, init_mode)
-    mutate_this_gen = False
 
     best_score = float("inf")
     best_state = deepcopy(curr_state)
 
-    if 'lr_patience' in config['optimization']:
-        lr_scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',
-                            patience=config['optimization']['lr_patience'], factor=0.25)
-    else:
-        lr_scheduler = None
-
     # Decide how many initial meta-iterations to train with the default parameterization
     # before beginning optimization.
-    if 'burn_in' in config['optimization']:
-        burn_in = config['optimization']['burn_in']
-    else:
-        burn_in = 0
+    burn_in = config['optimization'].get('burn_in', 0)
 
     for gen in range(config['optimization']['num_generations']):
         print("Generation",gen)
         print(experiment_name)
 
         # Generate
-        if (num_projectors > 0) and (gen >= burn_in) and (mutate_this_gen or
-                                                     not config['optimization']['alternate_optimization']):
+        if (num_projectors > 0) and (gen >= burn_in):
             print("GENERATING")
             curr_state, reactivated_projectors = get_new_state(curr_state, num_projectors,
-                                                       config['optimization']['mutate_percentage'],
-                                                       config['optimization']['alternatives_per_mutation'],
+                                                       config['optimization']['generate_percentage'],
+                                                       config['optimization']['alternatives_per_generation'],
                                                        config['optimization']['reactivation_probability'])
             omni_projector.reactivate_projectors(reactivated_projectors, device)
-
-        mutate_this_gen = not mutate_this_gen
 
         if omni_projector:
             omni_projector.assemble_projectors(curr_state)
             reset_soft_weight_optimizer_state(optimizer)
 
         # Evaluate
-        scores = run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device)
+        scores = run_nets(datasets, nets, criteria, optimizer, omni_projector, config, device)
 
         # Refine
-        if omni_projector and (config['optimization']['alternatives_per_mutation'] > 0):
+        if omni_projector and (config['optimization']['alternatives_per_generation'] > 0):
             curr_state = refine_state(curr_state, omni_projector,
                                       config['optimization']['selection_method'])
 
         # Check how well we're doing
-        if 'target_metric' in config['optimization']:
-            target_metric = config['optimization']['target_metric']
-        else:
-            target_metric = 'val_losses'
-
+        target_metric = config['optimization'].get('target_metric', 'val_losses')
         if 'target_index' in config['optimization']:
             target_index = config['optimization']['target_index']
             curr_score = scores[target_metric][target_index]
@@ -507,35 +425,24 @@ def optimize(experiment_name, datasets, nets, omni_projector, config, device):
                 print("Saving best")
                 save_best_state(experiment_name, best_state, omni_projector, nets, optimizer)
 
-        elif config['optimization'].get('use_val', False):
-            curr_state = deepcopy(best_state)
-
         # Record
         write_result(experiment_name, scores, curr_state)
 
-        # Reduce learning rate if necessary.
-        if lr_scheduler:
-            lr_scheduler.step(curr_score)
-            print("Num bad epochs:", lr_scheduler.num_bad_epochs)
 
-    # Fix state and perform final fine tuning.
+    # Revert state and perform any final training.
     final_training_generations = config['optimization'].get('final_training_generations', 0)
-    final_training_mode = config['optimization'].get('final_training_mode', 'keep')
-
-    if final_training_mode == 'best_state':
-        curr_state = best_state
-    elif final_training_mode == 'best_val':
+    if final_training_generations > 0:
         print("Loading best")
         omni_projector, nets, curr_state, optimizer = load_best_state(
                         experiment_name, omni_projector, nets, optimizer)
 
-    if omni_projector:
-        omni_projector.assemble_projectors(curr_state)
+        if omni_projector:
+            omni_projector.assemble_projectors(curr_state)
     for gen in range(final_training_generations):
         print("Final Generation",gen)
 
         # Evaluate
-        scores = run_nets(datasets, nets, criteria, optimizer, clippable_params, omni_projector, config, device)
+        scores = run_nets(datasets, nets, criteria, optimizer, omni_projector, config, device)
 
         # Record
         write_result(experiment_name, scores, curr_state)
@@ -585,12 +492,10 @@ def setup_and_run(experiment_name, config, device):
     for dataset in datasets:
         dataset['train_iter'] = iter(dataset['train_loader'])
     nets = [create_net(task_config, config['projectors']) for task_config in config['tasks']]
-    for net in nets:
-        print("NUM FILTERS", net.num_projectors)
     num_projectors = sum([net.num_projectors for net in nets])
     if num_projectors != 0:
         context = aggregate_context(nets)
-        bias = config['projectors'].get('bias', True)
+        bias = config['projectors'].get('bias', False)
         alpha = config['optimization'].get('alpha', None)
         ignore_context = config['projectors'].get('ignore_context', False)
         frozen_context = config['projectors'].get('frozen_context', False)
@@ -598,7 +503,7 @@ def setup_and_run(experiment_name, config, device):
                                        config['projectors']['block_in'],
                                        config['projectors']['block_out'],
                                        num_projectors,
-                                       config['optimization']['alternatives_per_mutation'] + 1,
+                                       config['optimization']['alternatives_per_generation'] + 1,
                                        context,
                                        bias=bias,
                                        alpha=alpha,
@@ -610,7 +515,7 @@ def setup_and_run(experiment_name, config, device):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Evolve hypermodels")
+    parser = argparse.ArgumentParser(description="Optimize alignment of hypermodules")
 
     parser.add_argument('--experiment_name', required=True)
     parser.add_argument('--config', required=True)
