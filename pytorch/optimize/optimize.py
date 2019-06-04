@@ -196,13 +196,12 @@ def create_optimizer(nets, omni_projector, config):
 
     optimizer_name = config['training'].get('optimizer', 'adam')
     lr = config['training'].get('lr', 0.001)
-    weight_decay = config['training'].get('weight_decay', 0.)
     if optimizer_name == 'adam':
-        optimizer = optim.Adam(param_list, lr=lr, weight_decay=weight_decay)
+        optimizer = optim.Adam(param_list, lr=lr)
     elif optimizer_name == 'sgd':
-        optimizer = optim.SGD(param_list, lr=lr, weight_decay=weight_decay)
+        optimizer = optim.SGD(param_list, lr=lr)
     elif optimizer_name == 'rmsprop':
-        optimizer = optim.RMSprop(param_list, lr=lr, weight_decay=weight_decay)
+        optimizer = optim.RMSprop(param_list, lr=lr)
     else:
         print("Please choose a valid optimizer")
         sys.exit(0)
@@ -234,7 +233,7 @@ def run_nets(datasets, nets, criteria, optimizer, omni_projector, config, device
 
     print("Training")
     train_losses = train(train_loaders, train_iters, nets, criteria, optimizer, omni_projector,
-                         config['optimization'].get(['steps_per_generation']), device)
+                         config['optimization'].get('steps_per_generation'), device)
     print("Evaluating")
     val_losses, val_errs = test(val_loaders, nets, criteria, device)
     print("Testing")

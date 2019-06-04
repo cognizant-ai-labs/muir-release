@@ -14,9 +14,9 @@ def create_net(task_config, projector_config):
 
     model = task_config['model']
     output_size = task_config['output_size']
-    context_size = projector_config['context_size']
-    block_in = projector_config['block_in']
-    block_out = projector_config['block_out']
+    context_size = projector_config.get('context_size', None)
+    block_in = projector_config.get('block_in', None)
+    block_out = projector_config.get('block_out', None)
 
     print("Creating", model)
 

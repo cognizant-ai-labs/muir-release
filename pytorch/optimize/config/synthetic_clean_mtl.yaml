@@ -243,7 +243,6 @@ tasks:
 training:
     optimizer: adam
     lr: 0.001
-    weight_decay: 0
 
 projectors:
     context_size: 1
@@ -251,7 +250,7 @@ projectors:
     block_out: 1
     bias: False
 
-evolution:
+optimization:
     steps_per_generation: 100
     num_generations: 1000
     generate_percentage: 0.5

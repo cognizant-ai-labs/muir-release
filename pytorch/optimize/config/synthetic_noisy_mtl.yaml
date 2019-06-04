@@ -273,7 +273,6 @@ tasks:
 training:
     optimizer: adam
     lr: 0.001
-    weight_decay: 0
 
 projectors:
     context_size: 1
@@ -281,11 +280,11 @@ projectors:
     block_out: 1
     bias: False
 
-evolution:
+optimization:
     steps_per_generation: 100
     num_generations: 1000
-    mutate_percentage: 0.5
-    alternatives_per_mutation: 4
+    generate_percentage: 0.5
+    alternatives_per_generation: 4
     selection_method: best
     soft_lr: 0.01
     reactivation_probability: 0.0001

@@ -243,11 +243,10 @@ tasks:
 training:
     optimizer: adam
     lr: 0.001
-    weight_decay: 0
 
 projectors:
     context_size: 0
 
-evolution:
+optimization:
     steps_per_generation: 100
     num_generations: 1200

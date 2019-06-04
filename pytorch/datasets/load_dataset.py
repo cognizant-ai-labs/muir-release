@@ -6,8 +6,6 @@ import sys
 
 from datasets.cifar import load_cifar
 from datasets.crispr import load_crispr_genomic
-from datasets.imdb import load_imdb
-from datasets.mnist import load_mnist
 from datasets.synthetic import load_synthetic
 from datasets.wikitext2 import load_wikitext2
 
