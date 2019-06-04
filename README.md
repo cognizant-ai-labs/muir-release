@@ -6,11 +6,12 @@
 cd muir-release
 mkdir results
 pip install -r requirements.txt
+export PYTHONPATH=$PYTHONPATH:~/muir-release/pytorch/
 ```
 
 ## Datasets
 
-The code assumes datasets are downloaded into `~/hyperdatasets/<dataset_name>`, e.g., `~/hyperdatasets/cifar` and `~/hyperdatasets/wikitext2`.
+The code assumes datasets are downloaded and placed in `~/hyperdatasets/<dataset_name>`, e.g., `~/hyperdatasets/cifar` and `~/hyperdatasets/wikitext2`.
 
 Dataset files for the synthetic dataset are included directly in `muir-release/datasets/synthetic`.
 
