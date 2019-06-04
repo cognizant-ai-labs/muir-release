@@ -35,9 +35,9 @@ Results for the experiment will be saved to a directory with the experiments nam
 
 ## Implementing new Experiments
 
-To use a new architecture, a model class must be implemented that replaces layers with hyperlayers (see `muir-release/pytorch/models/` for examples).
+To use a new architecture, a model class can be implemented that replaces layers with hyperlayers (see `muir-release/pytorch/models/` for examples).
 
 Currently, layers supported for reparameterization by hypermodules are fully-connected, conv2d, conv1d, and LSTM (see `muir-release/pytorch/layers/`). These can be extended to more layer types by following the examples there.
 
-To use a new dataset, it must be implemented to follow the interface of the examples in `muir-release/pytorch/datasets/`.
+To use a new dataset, it can be implemented to follow the interface of the examples in `muir-release/pytorch/datasets/`.
 
