@@ -297,6 +297,8 @@ def train(train_loaders, train_iters, nets, criteria, optimizer, omni_projector,
             if (i + 1) % len(train_loader) == 0:
                 train_iters[j] = iter(train_loader)
 
+        optimizer.step()
+
     print(running_losses[j] / (i+1))
 
     train_losses = [running_loss / steps for running_loss in running_losses]
