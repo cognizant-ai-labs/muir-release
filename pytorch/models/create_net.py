@@ -1,5 +1,7 @@
+# Copyright (c) 2019 Cognizant Digital Business.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
 #
-# Utility function for creating nets
+# Utility function for creating networks.
 #
 
 import sys

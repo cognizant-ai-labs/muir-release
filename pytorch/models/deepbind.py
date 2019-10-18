@@ -1,5 +1,7 @@
+# Copyright (c) 2019 Cognizant Digital Business.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
 #
-# Hyper deepbind model
+# Hypermodule implementation of deepbind model
 #
 
 import torch.nn as nn
