@@ -1,6 +1,6 @@
 # muir-release
 
-This repository provides an implementation of the algorithm introduced in [Modular Universal Reparameterization: Deep Multi-task Learning across Diverse Domains, NeurIPS 2019](https://arxiv.org/pdf/1906.00097.pdf)
+This repository provides an implementation of the algorithm introduced in [Modular Universal Reparameterization: Deep Multi-task Learning across Diverse Domains, NeurIPS 2019](https://arxiv.org/pdf/1906.00097.pdf).
 
 ## Installation
 ```
