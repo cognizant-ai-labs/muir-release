@@ -4,10 +4,7 @@
 # Code adapated from: Learning with Whom to Share in Multi-task Feature Learning, ICML 2011
 #
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import pickle
 import numpy as np
 import os
 import torch
@@ -27,14 +24,14 @@ def load_synthetic(batch_size=15, num_val=5, task_index=0, noisy=False):
     train_Y_file = data_dir + '/' + noisy_str + 'train_Y.pkl'
     test_Y_file = data_dir + '/' + noisy_str + 'test_Y.pkl'
 
-    with open(train_X_file, 'r') as f:
-        train_X = pickle.load(f)[task_index]
-    with open(test_X_file, 'r') as f:
-        test_X = pickle.load(f)[task_index]
-    with open(train_Y_file, 'r') as f:
-        train_Y = pickle.load(f)[task_index]
-    with open(test_Y_file, 'r') as f:
-        test_Y = pickle.load(f)[task_index]
+    with open(train_X_file, 'rb') as f:
+        train_X = pickle.load(f, encoding='latin1')[task_index]
+    with open(test_X_file, 'rb') as f:
+        test_X = pickle.load(f, encoding='latin1')[task_index]
+    with open(train_Y_file, 'rb') as f:
+        train_Y = pickle.load(f, encoding='latin1')[task_index]
+    with open(test_Y_file, 'rb') as f:
+        test_Y = pickle.load(f, encoding='latin1')[task_index]
 
     print(train_X.shape)
     print(train_Y.shape)

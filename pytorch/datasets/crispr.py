@@ -2,12 +2,9 @@
 # Pytorch dataset for crispr genomic data
 #
 
+import pickle
 import os
 import time
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 import numpy as np
 import random
 import torch

@@ -3,10 +3,7 @@
 #
 
 import argparse
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import pickle
 import os
 import time
 import sys
