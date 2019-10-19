@@ -20,6 +20,8 @@ Dataset files for Cifar can be downloaded directly with PyTorch.
 
 Dataset files for WikiText-2 can be downloaded from https://www.salesforce.com/products/einstein/ai-research/the-wikitext-dependency-language-modeling-dataset/.
 
+Dataset files for CRISPR binding prediction can be downloaded from: http://nn.cs.utexas.edu/pages/research/crispr-binding-prediction.tar.gz.
+
 ## Running Optimization
 
 ```
