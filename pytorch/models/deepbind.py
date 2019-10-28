@@ -1,7 +1,15 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/optimize/LICENSE.
 #
 # Hypermodule implementation of deepbind model
+#
+# The deepbind model family was originally described in the following papers:
+#
+# B. Alipanahi, A. Delong, M. T. Weirauch, and B. J. Frey. Predicting the sequence
+# specificities of dna-and rna-binding proteins by deep learning. Nature biotechnology, 2015.
+#
+# H. Zeng, M. D. Edwards, G. Liu, and D. K. Gifford. Convolutional neural network
+# architectures for predicting dna-protein binding. Bioinformatics, 2016.
 #
 
 import torch.nn as nn

@@ -1,9 +1,6 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
 #
-# Hypermodule implementation of word level LSTM language model.
-#
-# Code adapted from https://github.com/pytorch/examples/tree/master/word_language_model,
+# Code derived in part from https://github.com/pytorch/examples/tree/master/word_language_model,
 # issued under the following license:
 #
 # BSD 3-Clause License
@@ -35,6 +32,10 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+#
+# Hypermodule implementation of word level LSTM language model.
 #
 
 import torch

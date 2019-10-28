@@ -1,9 +1,6 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
 #
-# Wide resnet with hypermodule reparameterization options.
-#
-# Code adapted from https://github.com/szagoruyko/wide-residual-networks/blob/master/pytorch/resnet.py,
+# Code derived from https://github.com/szagoruyko/wide-residual-networks/blob/master/pytorch/resnet.py,
 # issued under the following license:
 #
 # BSD 2-Clause License
@@ -31,6 +28,10 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+#
+# Wide resnet with hypermodule reparameterization options.
 #
 
 import torch.nn as nn

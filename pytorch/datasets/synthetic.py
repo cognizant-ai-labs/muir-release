@@ -3,8 +3,6 @@
 #
 # Function for loading synthetic dataset
 #
-# Code adapated from: Learning with Whom to Share in Multi-task Feature Learning, ICML 2011
-#
 
 import pickle
 import numpy as np
