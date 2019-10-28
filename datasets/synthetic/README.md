@@ -1,4 +1,4 @@
-This directory contains python pickle versions of the synthetic multi-task learning dataset introduced in the paper
+This directory contains python pickle versions of the synthetic multi-task learning dataset introduced in the following paper:
 
 Zhuoliang Kang, Kristen Grauman, and Fei Sha. Learning with Whom to Share in Multi-task Feature Learning. International Conference on Machine Learning (ICML), 2011.
 
