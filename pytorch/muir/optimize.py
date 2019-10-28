@@ -1,5 +1,5 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/optimize/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/muir/LICENSE.
 #
 # Entrypoint for optimization in muir
 #
@@ -24,8 +24,8 @@ import torch.optim as optim
 
 from datasets.load_dataset import load_dataset
 from models.create_net import create_net
-from optimize.load_utils import load_config
-from optimize.omni_projector import OmniProjector
+from muir.load_utils import load_config
+from muir.omni_projector import OmniProjector
 
 
 def get_initial_state(num_projectors, num_locations, mode='separate'):
@@ -129,7 +129,7 @@ def refine_state(state, omni_projector, select='best'):
 
 def get_experiment_dir(experiment_name):
 
-    results_root = os.path.expanduser('~/muir-release/results/')
+    results_root = os.path.expanduser('~/muir/results/')
     experiment_dir = results_root + '/' + experiment_name
     return experiment_dir
 

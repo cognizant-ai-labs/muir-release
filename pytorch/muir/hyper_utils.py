@@ -1,11 +1,11 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/optimize/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/muir/LICENSE.
 #
 # Utility functions for implementing and using hyperlayers
 #
 
 import torch
-from optimize.projector import Projector
+from muir.projector import Projector
 
 def create_projectors(num_projectors, context_size, block_in, block_out, norm=None):
     projectors = []

@@ -1,5 +1,5 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/optimize/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/muir/LICENSE.
 #
 # Hypermodule implementation of deepbind model
 #
@@ -16,7 +16,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from layers.hyperconv1d import HyperConv1d
 from layers.hyperlinear import HyperLinear
-from optimize.hyper_utils import set_layer_weights
+from muir.hyper_utils import set_layer_weights
 
 class DeepBind(nn.Module):
     def __init__(self, context_size, block_in, block_out,

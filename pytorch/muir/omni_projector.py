@@ -1,5 +1,5 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/optimize/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/muir/LICENSE.
 #
 # Class for a single-pass parameter generator.
 #
