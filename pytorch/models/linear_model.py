@@ -6,7 +6,7 @@
 
 import torch.nn as nn
 from layers.hyperlinear import HyperLinear
-from hyper_utils import set_layer_weights
+from optimize.hyper_utils import set_layer_weights
 
 class LinearModel(nn.Module):
     def __init__(self, context_size=1, block_in=20, block_out=1,

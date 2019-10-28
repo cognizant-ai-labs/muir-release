@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.nn import init
 from torch.nn import functional as F
 from torch.nn.parameter import Parameter
-from hyper_utils import pack_conv1d
+from optimize.hyper_utils import pack_conv1d
 
 class HyperConv1d(nn.Module):
 

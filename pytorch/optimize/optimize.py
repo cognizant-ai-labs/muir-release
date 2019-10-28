@@ -24,8 +24,8 @@ import torch.optim as optim
 
 from datasets.load_dataset import load_dataset
 from models.create_net import create_net
-from load_utils import load_config
-from omni_projector import OmniProjector
+from optimize.load_utils import load_config
+from optimize.omni_projector import OmniProjector
 
 
 def get_initial_state(num_projectors, num_locations, mode='separate'):

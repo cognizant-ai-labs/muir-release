@@ -5,7 +5,7 @@
 #
 
 import torch
-from projector import Projector
+from optimize.projector import Projector
 
 def create_projectors(num_projectors, context_size, block_in, block_out, norm=None):
     projectors = []

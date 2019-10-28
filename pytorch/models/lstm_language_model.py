@@ -41,7 +41,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from layers.hyperlstm import HyperLSTM
-from hyper_utils import set_layer_weights
+from optimize.hyper_utils import set_layer_weights
 
 
 def repackage_hidden(h):

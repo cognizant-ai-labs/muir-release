@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 from layers.hyperconv1d import HyperConv1d
 from layers.hyperlinear import HyperLinear
-from hyper_utils import set_layer_weights
+from optimize.hyper_utils import set_layer_weights
 
 class DeepBind(nn.Module):
     def __init__(self, context_size, block_in, block_out,
