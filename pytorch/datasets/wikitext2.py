@@ -1,10 +1,7 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
 #
-# Functions for loading Wikitext-2 dataset.
-#
-# Code adapted from https://github.com/pytorch/examples/blob/master/word_language_model/,
-# issued under the following license:
+# Code derived from https://github.com/pytorch/examples/blob/master/word_language_model/,
+# which is issued under the following license:
 #
 # BSD 3-Clause License
 #
@@ -37,6 +34,9 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+#
+# Functions for loading Wikitext-2 dataset.
+#
 import os
 import torch
 

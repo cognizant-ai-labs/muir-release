@@ -1,5 +1,5 @@
 # Copyright (c) 2019 Cognizant Digital Business.
-# Issued under this Academic Public License: github.com/leaf-ai/muir/LICENSE.
+# Issued under this Academic Public License: github.com/leaf-ai/muir/pytorch/layers/LICENSE.
 #
 # Class for hyperconv 2d layers in pytorch
 #
